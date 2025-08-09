@@ -164,6 +164,8 @@ impl<'a> TextRenderer<'a> for Glsl3Renderer {
             gl::ActiveTexture(gl::TEXTURE0);
         }
 
+        self.active_tex = 0;
+
         let res = func(RenderApi {
             active_tex: &mut self.active_tex,
             batch: &mut self.batch,

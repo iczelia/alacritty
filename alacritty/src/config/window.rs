@@ -48,6 +48,9 @@ pub struct WindowConfig {
     /// Request blur behind the window.
     pub blur: bool,
 
+    /// Ditto.
+    pub background_image: Option<String>,
+
     /// Controls which `Option` key should be treated as `Alt`.
     option_as_alt: OptionAsAlt,
 
@@ -80,6 +83,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             decorations: Default::default(),
             startup_mode: Default::default(),
+            background_image: Default::default(),
             dynamic_padding: Default::default(),
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),

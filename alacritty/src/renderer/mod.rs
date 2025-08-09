@@ -15,7 +15,7 @@ use unicode_width::UnicodeWidthChar;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 
-use crate::config::debug::RendererPreference;
+use crate::config::{UiConfig, debug::RendererPreference};
 use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
@@ -27,11 +27,14 @@ pub mod platform;
 pub mod rects;
 mod shader;
 mod text;
+mod background;
 
 pub use text::{GlyphCache, LoaderApi};
 
 use shader::ShaderVersion;
 use text::{Gles2Renderer, Glsl3Renderer, TextRenderer};
+
+use self::background::BackgroundRenderer;
 
 /// Whether the OpenGL functions have been loaded.
 pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
@@ -90,6 +93,7 @@ pub struct Renderer {
     text_renderer: TextRendererProvider,
     rect_renderer: RectRenderer,
     robustness: bool,
+    background_renderer: BackgroundRenderer
 }
 
 /// Wrapper around gl::GetString with error checking and reporting.
@@ -150,15 +154,17 @@ impl Renderer {
             None => (shader_version.as_ref() >= "3.3" && !is_gles_context, true),
         };
 
-        let (text_renderer, rect_renderer) = if use_glsl3 {
+        let (text_renderer, rect_renderer, background_renderer) = if use_glsl3 {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
-            (text_renderer, rect_renderer)
+            let background_renderer = BackgroundRenderer::new(ShaderVersion::Glsl3)?;
+            (text_renderer, rect_renderer, background_renderer)
         } else {
             let text_renderer =
                 TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb, is_gles_context)?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
-            (text_renderer, rect_renderer)
+            let background_renderer = BackgroundRenderer::new(ShaderVersion::Gles2)?;
+            (text_renderer, rect_renderer, background_renderer)
         };
 
         // Enable debug logging for OpenGL as well.
@@ -171,7 +177,7 @@ impl Renderer {
             }
         }
 
-        Ok(Self { text_renderer, rect_renderer, robustness })
+        Ok(Self { text_renderer, rect_renderer, background_renderer, robustness })
     }
 
     pub fn draw_cells<I: Iterator<Item = RenderableCell>>(
@@ -317,6 +323,19 @@ impl Renderer {
         } else {
             info!("GPU reset notifications are disabled");
             false
+        }
+    }
+
+    pub fn draw_background(&mut self, color: Rgb, config: &UiConfig, size_info: &SizeInfo) {
+        if let Some(path) = &config.window.background_image {
+            self.background_renderer.set_background(path);
+        }
+
+        if self.background_renderer.should_draw() {
+            self.clear(color, 0.0);
+            self.background_renderer.draw(size_info, config.window_opacity());
+        } else {
+            self.clear(color, config.window_opacity());
         }
     }
 

@@ -467,7 +467,7 @@ impl Display {
 
         // Clear screen.
         let background_color = config.colors.primary.background;
-        renderer.clear(background_color, config.window_opacity());
+        renderer.draw_background( background_color, &config, &size_info);
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
